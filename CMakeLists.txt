@@ -51,6 +51,8 @@ SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${BUILD_PATH}")
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${BUILD_PATH}")
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${BUILD_PATH}")
 
+message("GODOT_CUSTOM_API_FILE: ${GODOT_CUSTOM_API_FILE}")
+
 # Default build type is Debug in the SConstruct
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
 	set(CMAKE_BUILD_TYPE Debug)
@@ -80,6 +82,8 @@ set(GODOT_CUSTOM_API_FILE "godot-headers/api.json" CACHE STRING "")
 
 set(GODOT_COMPILE_FLAGS )
 set(GODOT_LINKER_FLAGS )
+
+set(BUILD_ARGS "-v" "-w" "dupbuild=warn")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	# using Visual Studio C++
@@ -171,7 +175,33 @@ add_custom_command(OUTPUT ${HEADERS_FILE_LIST} ${SOURCES_FILE_LIST}
 file(GLOB_RECURSE SOURCES src/*.c**)
 file(GLOB_RECURSE HEADERS include/*.h**)
 
+function(reconcile_duplicate_sources list1 list2 list1_varname list2_varname)
+	message(VERBOSE "reconcile_duplicate_sources list1: ${list1}")
+	message(VERBOSE "reconcile_duplicate_sources list2: ${list2}")
+
+	foreach(li ${list1})
+		message(VERBOSE "checking ${li}")
+		get_filename_component(li_filename ${li} NAME)
+		message(VERBOSE "li name: ${li_filename}")
+
+		foreach(li2 ${list2})
+			message(VERBOSE "against ${li2}")
+			string(FIND ${li2} ${li_filename} li_filename_found)
+			message(VERBOSE "li_filename_found: ${li_filename_found}")
+			if(${li_filename_found} GREATER -1)
+				message("removing duplicate item: ${li2}")
+				list(REMOVE_ITEM list2 ${li2})
+			endif()
+		endforeach()
+	endforeach()
+
+	set(${list1_varname} ${list1} PARENT_SCOPE)
+	set(${list2_varname} ${list2} PARENT_SCOPE)
+endfunction()
+
 # Define our godot-cpp library
+reconcile_duplicate_sources("${SOURCES}" "${SOURCES_FILE_LIST}" "SOURCES" "SOURCES_FILE_LIST")
+
 add_library(${PROJECT_NAME}
 		${SOURCES}
 		${SOURCES_FILE_LIST}
